@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QBrush, QColor
 import sqlite3
 from datetime import datetime
 
@@ -9,8 +10,13 @@ class BudgetApp(QMainWindow):
         super().__init__()
         self.setWindowTitle("Budget App")
         self.setGeometry(100, 100, 600, 400)
+        
+        self.initialize_database()
+        self.init_ui()
 
-        # Initialize database
+        self.load_transactions()
+
+    def initialize_database(self):
         self.conn = sqlite3.connect("budget.db")
         self.cursor = self.conn.cursor()
         self.cursor.execute("""
@@ -23,6 +29,7 @@ class BudgetApp(QMainWindow):
         """)
         self.conn.commit()
 
+    def init_ui(self):
         # Main widget and layout
         self.main_widget = QWidget()
         self.setCentralWidget(self.main_widget)
@@ -48,13 +55,16 @@ class BudgetApp(QMainWindow):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.layout.addWidget(self.table)
 
-        self.load_transactions()
-
     def add_transaction(self):
         amount = self.amount_input.text()
         category = self.category_input.text()
         if amount and category:
             try:
+                amount = amount.replace(",", ".")
+                if amount.count('+') == 0 and amount.count('-') == 0:
+                    amount = '-' + amount
+                if not amount.replace('.', '', 1).replace('-', '').isdigit():
+                    raise ValueError("Montant invalide")
                 amount = float(amount)
                 date = datetime.now().strftime("%Y-%m-%d")
                 self.cursor.execute(
@@ -66,7 +76,7 @@ class BudgetApp(QMainWindow):
                 self.category_input.clear()
                 self.load_transactions()
             except ValueError:
-                print("Montant invalide")
+                print("Erreur: Montant invalide")
 
     def load_transactions(self):
         self.table.setRowCount(0)
@@ -74,8 +84,22 @@ class BudgetApp(QMainWindow):
         for row_data in self.cursor.fetchall():
             row = self.table.rowCount()
             self.table.insertRow(row)
-            for column, data in enumerate(row_data):
-                self.table.setItem(row, column, QTableWidgetItem(str(data)))
+            for col, data in enumerate(row_data):
+                str_data = str(data)
+                text_color = "black"
+                if col == 0:
+                    try:
+                        if float(data) <= 0:
+                            str_data.replace("-", "")
+                        else:
+                            str_data = "+ " + str_data
+                            text_color = "green"
+                    except ValueError:
+                        pass
+                
+                item = QTableWidgetItem(str_data)
+                item.setForeground(QBrush(QColor(text_color)))
+                self.table.setItem(row, col, item)
 
     def closeEvent(self, event):
         self.conn.close()
