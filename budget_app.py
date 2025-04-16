@@ -75,8 +75,8 @@ class BudgetApp(QMainWindow):
                 self.amount_input.clear()
                 self.category_input.clear()
                 self.load_transactions()
-            except ValueError:
-                print("Erreur: Montant invalide")
+            except ValueError as error:
+                print("Erreur: ", error)
 
     def load_transactions(self):
         self.table.setRowCount(0)
